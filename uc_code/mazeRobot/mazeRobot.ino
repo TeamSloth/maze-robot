@@ -282,6 +282,7 @@ void handleMotorTimeout(void)
   {
     setLeftGoalSpeed(0);
     setRightGoalSpeed(0);
+    motorTimeout = -1;
   }
 }
   
@@ -392,18 +393,34 @@ void parseCommand(char * cmd)
         a = atol(&cmd[i]);
       }
       while(cmd[i++] != ' '); /* find the next space */
-      while(cmd[++i] == ' '); /* find the first non-space character */
+      while(cmd[i] == ' ') /* find the first non-space character */
+      {
+        ++i;
+      }
       if(cmd[i] == 't')
       {
         while(cmd[i++] != ':'); /* find the ':' */
         t = atol(&cmd[i]);
       }
+      
+#if USE_VERBOSE_DEBUG
+      SerPort.print("Got a:");
+      SerPort.print(a);
+      SerPort.print(" t:");
+      SerPort.println(t);
+#endif
+
       float arclength_mm = PI*93.0*a/360.0;
       float v_mm_per_ms = arclength_mm/t;
-      
-      setLeftGoalSpeed(-round(v_mm_per_ms*MOTOR_SCALE_FACTOR));
-      setRightGoalSpeed(round(v_mm_per_ms*MOTOR_SCALE_FACTOR));
-      motorTimeout = millis() + t;
+      int rotateGoalSpeed = round(v_mm_per_ms*MOTOR_SCALE_FACTOR);
+#if USE_VERBOSE_DEBUG
+      SerPort.print("Goals speed: ");
+      SerPort.println(rotateGoalSpeed);
+
+#endif
+      setLeftGoalSpeed(-rotateGoalSpeed);
+      setRightGoalSpeed(rotateGoalSpeed);
+      motorTimeout = millis() + t + (abs(rotateGoalSpeed)/2); // acount for the ramp-up
       
       
 #if USE_VERBOSE_DEBUG
