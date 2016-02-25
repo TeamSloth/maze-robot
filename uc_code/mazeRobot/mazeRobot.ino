@@ -1,5 +1,12 @@
 /* Main source code for the maze robot. */
 
+#define USE_USB_SERIAL 1 // change this to 0 to enable hardware serial
+#if USE_USB_SERIAL
+  #define SerPort SerialUSB
+#else
+  #define SerPort Serial1 // Note: change this to the correct serial port.
+#endif
+
 /* Parameters that can be adjusted to tweek the behavior. */
 #define MAX_SPEED_CHANGE 50
 #define SPEED_CHANGE_RAMP_DELAY 50 /* ms */
@@ -56,6 +63,9 @@ volatile long lineSensorLockout = -1;
 
 void setup()
 {
+#if USE_USB_SERIAL == 0
+  SerPort.begin(57000);
+#endif
   Dxl.begin(3);
   Dxl.wheelMode(ID_NUM_LEFT); //wheelMode() is to use wheel mode
   Dxl.wheelMode(ID_NUM_RIGHT); //wheelMode() is to use wheel mode
@@ -105,11 +115,13 @@ void loop()
   /* TODO: this currently is free running, it should be configured to run at 
    * a fixed rate
    */
-  if(SerialUSB.isConnected())
+#if USE_USB_SERIAL
+  if(SerPort.isConnected())
+#endif
   {
-    while(SerialUSB.available())
+    while(SerPort.available())
     {
-      commandParser(SerialUSB.read());
+      commandParser(SerPort.read());
     }
   }
   
@@ -123,7 +135,7 @@ void handleTripSensors(void)
   if(tripSensorStatus & USER_BUTTON)
   {
     tripSensorStatus &= ~USER_BUTTON;
-    SerialUSB.println("<sensor user:1>");
+    SerPort.println("<sensor user:1>");
   }
   if((userButtonLockout > 0) && (millis() > userButtonLockout))
   {
@@ -134,7 +146,7 @@ void handleTripSensors(void)
   if(tripSensorStatus & LEFT_BUMPER)
   {
     tripSensorStatus &= ~LEFT_BUMPER;
-    SerialUSB.println("<sensor left:1>");
+    SerPort.println("<sensor left:1>");
   }
   if((leftBumperLockout > 0) && (millis() > leftBumperLockout))
   {
@@ -145,7 +157,7 @@ void handleTripSensors(void)
   if(tripSensorStatus & RIGHT_BUMPER)
   {
     tripSensorStatus &= ~RIGHT_BUMPER;
-    SerialUSB.println("<sensor right:1>");
+    SerPort.println("<sensor right:1>");
   }
   if((rightBumperLockout > 0) && (millis() > rightBumperLockout))
   {
@@ -156,7 +168,7 @@ void handleTripSensors(void)
   if(tripSensorStatus & LINE_SENSOR)
   {
     tripSensorStatus &= ~LINE_SENSOR;
-    SerialUSB.println("<sensor line:1>");
+    SerPort.println("<sensor line:1>");
   }
   if((lineSensorLockout > 0) && (millis() > lineSensorLockout))
   {
@@ -188,8 +200,8 @@ void setMotorSpeed(void)
       }
     }
     /* Set the motor speed based on the current values */
-    SerialUSB.print("Setting Left = ");
-    SerialUSB.println(leftSpeed);
+    SerPort.print("Setting Left = ");
+    SerPort.println(leftSpeed);
     if(leftSpeed < 0)
     {
       Dxl.goalSpeed(ID_NUM_LEFT, (-leftSpeed) | 0x400);
@@ -221,8 +233,8 @@ void setMotorSpeed(void)
     }
     
     /* Set the motor speed based on the current values */
-    SerialUSB.print("Setting Right = ");
-    SerialUSB.println(rightSpeed);
+    SerPort.print("Setting Right = ");
+    SerPort.println(rightSpeed);
     if(rightSpeed < 0)
     {
       Dxl.goalSpeed(ID_NUM_RIGHT, -rightSpeed);
@@ -267,7 +279,7 @@ void commandParser(char c)
  */
 void parseCommand(char * cmd)
 {
-  SerialUSB.println(cmd);
+  SerPort.println(cmd);
   const char * arcCmd = "arc";
   const char * rotateCmd = "rotate";
   
@@ -276,7 +288,7 @@ void parseCommand(char * cmd)
     if(cmd[1] == 'r' && cmd[3] == 'c')
     {
       /* Execute arc command */
-      SerialUSB.println("exe arc!");
+      SerPort.println("exe arc!");
     }
   }
   else if(cmd[0] == 'r')
@@ -293,7 +305,7 @@ void parseCommand(char * cmd)
     if(rotateCmd[i] == '\0')
     {
       /* Execute Rotate Command */
-      SerialUSB.println("Exe rotate!");
+      SerPort.println("Exe rotate!");
     }
   }
   else if(cmd[0] == 'm')
@@ -311,10 +323,10 @@ void parseCommand(char * cmd)
     rightGoalSpeed = r;
     nextRightUpdate = 0;
     
-    SerialUSB.print("Got l:");
-    SerialUSB.print(l);
-    SerialUSB.print(" r:");
-    SerialUSB.println(r);
+    SerPort.print("Got l:");
+    SerPort.print(l);
+    SerPort.print(" r:");
+    SerPort.println(r);
   }
 }
 
