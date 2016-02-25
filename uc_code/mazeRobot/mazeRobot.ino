@@ -1,12 +1,23 @@
 /* Main source code for the maze robot. */
+
+/* Parameters that can be adjusted to tweek the behavior. */
+#define MAX_SPEED_CHANGE 50
+#define SPEED_CHANGE_RAMP_DELAY 50 /* ms */
+
 #define DXL_BUS_SERIAL1 1  //Dynamixel on Serial1(USART1)  <-OpenCM9.04
 
 /* Note: The Left wheel + direction is considered forward */
 #define ID_NUM_LEFT 1
 #define ID_NUM_RIGHT 2
-/* Note: The Left wheel + direction is considered forward */
+
 #define BOARD_RIGHT_DRIVE 16
 #define BOARD_RIGHT_SENSE 17
+
+/* TODO: these need to be define to the correct pins */
+#define BOARD_LEFT_DRIVE 18
+#define BOARD_LEFT_SENSE 19
+// #define BOARD_LINE_DRIVE 20
+#define BOARD_LINE_SENSE 21
 
 /* buffers for the incomming serial data */
 static char commandBuffer[256];
@@ -23,10 +34,25 @@ int leftSpeed = 0;
 int leftGoalSpeed = 0;
 int rightSpeed = 0;
 int rightGoalSpeed = 0;
-int maxSpeedChange = 50;
+int maxSpeedChange = MAX_SPEED_CHANGE;
 
 long nextRightUpdate = 0;
 long nextLeftUpdate = 0;
+
+/* Trip Sensors (buttons, bumpers, line sensors) */
+#define USER_BUTTON   0x01
+#define LEFT_BUMPER   0x02
+#define RIGHT_BUMPER  0x04
+#define LINE_SENSOR   0x08
+volatile int tripSensorStatus = 0;
+volatile long userButtonLockout = -1;
+volatile long leftBumperLockout = -1;
+volatile long rightBumperLockout = -1;
+volatile long lineSensorLockout = -1;
+
+#define USER_BUTTON_LOCKOUT_TIME 200 /* ms */
+#define BUMPER_LOCKOUT_TIME 200 /* ms */
+#define LINE_SENSOR_LOCKOUT_TIME 200 /* ms */
 
 void setup()
 {
@@ -36,8 +62,42 @@ void setup()
   pinMode(BOARD_RIGHT_DRIVE, OUTPUT);
   digitalWrite(BOARD_RIGHT_DRIVE, 1);
   pinMode(BOARD_RIGHT_SENSE, INPUT_PULLDOWN);
-//  attachInterrupt(BOARD_RIGHT_SENSE, turnLeft, RISING);
+  
+  /* attach the interrupts */
+  attachInterrupt(BOARD_BUTTON_PIN, userButtonHandler, RISING);
+  attachInterrupt(BOARD_RIGHT_SENSE, leftBumperHandler, RISING);
+  attachInterrupt(BOARD_LEFT_SENSE, rightBumperHandler, RISING);
+  attachInterrupt(BOARD_LINE_SENSE, lineSensorHandler, RISING);
+  
   pinMode(BOARD_LED_PIN, OUTPUT);
+}
+
+void userButtonHandler(void)
+{
+  tripSensorStatus |= USER_BUTTON;
+  long userButtonLockout = USER_BUTTON_LOCKOUT_TIME;
+  detachInterrupt(BOARD_BUTTON_PIN);
+}
+
+void leftBumperHandler(void)
+{
+  tripSensorStatus |= LEFT_BUMPER;
+  long leftBumperLockout = BUMPER_LOCKOUT_TIME;
+  detachInterrupt(BOARD_LEFT_SENSE);
+}
+
+void rightBumperHandler(void)
+{
+  tripSensorStatus |= RIGHT_BUMPER;
+  long rightBumperLockout = BUMPER_LOCKOUT_TIME;
+  detachInterrupt(BOARD_RIGHT_SENSE);
+}
+
+void lineSensorHandler(void)
+{
+  tripSensorStatus |= LINE_SENSOR;
+  long lineSensorLockout = LINE_SENSOR_LOCKOUT_TIME;
+  detachInterrupt(BOARD_LINE_SENSE);
 }
 
 void loop()
@@ -53,7 +113,56 @@ void loop()
     }
   }
   
+  handleTripSensors();
+  
   setMotorSpeed();
+}
+
+void handleTripSensors(void)
+{
+  if(tripSensorStatus & USER_BUTTON)
+  {
+    tripSensorStatus &= ~USER_BUTTON;
+    SerialUSB.println("<sensor user:1>");
+  }
+  if((userButtonLockout > 0) && (millis() > userButtonLockout))
+  {
+    userButtonLockout = -1;
+    attachInterrupt(BOARD_BUTTON_PIN, userButtonHandler, RISING);
+  }
+    
+  if(tripSensorStatus & LEFT_BUMPER)
+  {
+    tripSensorStatus &= ~LEFT_BUMPER;
+    SerialUSB.println("<sensor left:1>");
+  }
+  if((leftBumperLockout > 0) && (millis() > leftBumperLockout))
+  {
+    leftBumperLockout = -1;
+    attachInterrupt(BOARD_LEFT_SENSE, leftBumperHandler, RISING);
+  }
+  
+  if(tripSensorStatus & RIGHT_BUMPER)
+  {
+    tripSensorStatus &= ~RIGHT_BUMPER;
+    SerialUSB.println("<sensor right:1>");
+  }
+  if((rightBumperLockout > 0) && (millis() > rightBumperLockout))
+  {
+    rightBumperLockout = -1;
+    attachInterrupt(BOARD_RIGHT_SENSE, rightBumperHandler, RISING);
+  }
+  
+  if(tripSensorStatus & LINE_SENSOR)
+  {
+    tripSensorStatus &= ~LINE_SENSOR;
+    SerialUSB.println("<sensor line:1>");
+  }
+  if((lineSensorLockout > 0) && (millis() > lineSensorLockout))
+  {
+    lineSensorLockout = -1;
+    attachInterrupt(BOARD_LINE_SENSE, lineSensorHandler, RISING);
+  }
 }
 
 void setMotorSpeed(void)
@@ -68,7 +177,7 @@ void setMotorSpeed(void)
     }
     else
     {
-      nextLeftUpdate = millis() + 50;
+      nextLeftUpdate = millis() + SPEED_CHANGE_RAMP_DELAY;
       if((leftGoalSpeed - leftSpeed) > 0)
       {
         leftSpeed += maxSpeedChange;
@@ -100,7 +209,7 @@ void setMotorSpeed(void)
     }
     else
     {
-      nextRightUpdate = millis() + 50;
+      nextRightUpdate = millis() + SPEED_CHANGE_RAMP_DELAY;
       if((rightGoalSpeed - rightSpeed) > 0)
       {
         rightSpeed += maxSpeedChange;
