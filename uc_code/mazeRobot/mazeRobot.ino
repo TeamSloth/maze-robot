@@ -85,34 +85,6 @@ void setup()
   pinMode(BOARD_LED_PIN, OUTPUT);
 }
 
-void userButtonHandler(void)
-{
-  tripSensorStatus |= USER_BUTTON;
-  long userButtonLockout = USER_BUTTON_LOCKOUT_TIME;
-  detachInterrupt(BOARD_BUTTON_PIN);
-}
-
-void leftBumperHandler(void)
-{
-  tripSensorStatus |= LEFT_BUMPER;
-  long leftBumperLockout = BUMPER_LOCKOUT_TIME;
-  detachInterrupt(BOARD_LEFT_SENSE);
-}
-
-void rightBumperHandler(void)
-{
-  tripSensorStatus |= RIGHT_BUMPER;
-  long rightBumperLockout = BUMPER_LOCKOUT_TIME;
-  detachInterrupt(BOARD_RIGHT_SENSE);
-}
-
-void lineSensorHandler(void)
-{
-  tripSensorStatus |= LINE_SENSOR;
-  long lineSensorLockout = LINE_SENSOR_LOCKOUT_TIME;
-  detachInterrupt(BOARD_LINE_SENSE);
-}
-
 void loop()
 {
   /* TODO: this currently is free running, it should be configured to run at 
@@ -133,6 +105,9 @@ void loop()
   setMotorSpeed();
 }
 
+/*
+ * Sensor handling.
+ */
 void handleTripSensors(void)
 {
   if(tripSensorStatus & USER_BUTTON)
@@ -180,6 +155,37 @@ void handleTripSensors(void)
   }
 }
 
+void userButtonHandler(void)
+{
+  tripSensorStatus |= USER_BUTTON;
+  long userButtonLockout = USER_BUTTON_LOCKOUT_TIME;
+  detachInterrupt(BOARD_BUTTON_PIN);
+}
+
+void leftBumperHandler(void)
+{
+  tripSensorStatus |= LEFT_BUMPER;
+  long leftBumperLockout = BUMPER_LOCKOUT_TIME;
+  detachInterrupt(BOARD_LEFT_SENSE);
+}
+
+void rightBumperHandler(void)
+{
+  tripSensorStatus |= RIGHT_BUMPER;
+  long rightBumperLockout = BUMPER_LOCKOUT_TIME;
+  detachInterrupt(BOARD_RIGHT_SENSE);
+}
+
+void lineSensorHandler(void)
+{
+  tripSensorStatus |= LINE_SENSOR;
+  long lineSensorLockout = LINE_SENSOR_LOCKOUT_TIME;
+  detachInterrupt(BOARD_LINE_SENSE);
+}
+
+/*
+ * Motor Speed Updating.
+ */
 void setMotorSpeed(void)
 {
   /* Note the timeings are still arbitraty, I havent done the math yet. */ 
@@ -252,8 +258,25 @@ void setMotorSpeed(void)
     }
   }
 }
+
+void setLeftGoalSpeed(int s)
+{
+  s = constrain(s, -1023, 1023);
+  leftGoalSpeed = s;
+  nextLeftUpdate = 0;
+}
+
+void setRightGoalSpeed(int s)
+{
+  s = constrain(s, -1023, 1023);
+  rightGoalSpeed = s;
+  nextRightUpdate = 0;
+}
   
 
+/*
+ *  Functions for parsing incoming commands.
+ */
 void commandParser(char c)
 {
   static int parserReading = false;
@@ -277,20 +300,6 @@ void commandParser(char c)
     }
   }
    
-}
-
-void setLeftGoalSpeed(int s)
-{
-  s = constrain(s, -1023, 1023);
-  leftGoalSpeed = s;
-  nextLeftUpdate = 0;
-}
-
-void setRightGoalSpeed(int s)
-{
-  s = constrain(s, -1023, 1023);
-  rightGoalSpeed = s;
-  nextRightUpdate = 0;
 }
 
 /* currently only the following commands are parsed
