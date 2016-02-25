@@ -25,6 +25,9 @@ int rightSpeed = 0;
 int rightGoalSpeed = 0;
 int maxSpeedChange = 50;
 
+long nextRightUpdate = 0;
+long nextLeftUpdate = 0;
+
 void setup()
 {
   Dxl.begin(3);
@@ -50,17 +53,12 @@ void loop()
     }
   }
   
-  /* Set the motor speed based on the current values */
-  Dxl.goalSpeed(ID_NUM_RIGHT, 200);
-  //Dxl.goalSpeed(ID_NUM_RIGHT, 210 | 0x400);
-  
-
+  setMotorSpeed();
 }
 
 void setMotorSpeed(void)
 {
-  /* Note the timeings are still arbitraty, I havent done the math yet. */
-  static long nextLeftUpdate = 0; 
+  /* Note the timeings are still arbitraty, I havent done the math yet. */ 
   if(nextLeftUpdate == 0 || nextLeftUpdate < millis())
   {
     if(abs(leftGoalSpeed - leftSpeed) < maxSpeedChange)
@@ -80,10 +78,19 @@ void setMotorSpeed(void)
         leftSpeed -= maxSpeedChange;
       }
     }
-    /* TODO: Actualy apply the update */
+    /* Set the motor speed based on the current values */
+    SerialUSB.print("Setting Left = ");
+    SerialUSB.println(leftSpeed);
+    if(leftSpeed < 0)
+    {
+      Dxl.goalSpeed(ID_NUM_LEFT, (-leftSpeed) | 0x400);
+    }
+    else
+    {
+      Dxl.goalSpeed(ID_NUM_LEFT, leftSpeed);
+    }
   }
   
-  static long nextRightUpdate = 0; 
   if(nextRightUpdate == 0 || nextRightUpdate < millis())
   {
     if(abs(rightGoalSpeed - rightSpeed) < maxSpeedChange)
@@ -102,6 +109,18 @@ void setMotorSpeed(void)
       {
         rightSpeed -= maxSpeedChange;
       }
+    }
+    
+    /* Set the motor speed based on the current values */
+    SerialUSB.print("Setting Right = ");
+    SerialUSB.println(rightSpeed);
+    if(rightSpeed < 0)
+    {
+      Dxl.goalSpeed(ID_NUM_RIGHT, -rightSpeed);
+    }
+    else
+    {
+      Dxl.goalSpeed(ID_NUM_RIGHT, rightSpeed | 0x400);
     }
   }
 }
@@ -148,7 +167,7 @@ void parseCommand(char * cmd)
     if(cmd[1] == 'r' && cmd[3] == 'c')
     {
       /* Execute arc command */
-      SerialUSB.println('exe arc!');
+      SerialUSB.println("exe arc!");
     }
   }
   else if(cmd[0] == 'r')
@@ -165,7 +184,7 @@ void parseCommand(char * cmd)
     if(rotateCmd[i] == '\0')
     {
       /* Execute Rotate Command */
-      SerialUSB.println('exe rotate!');
+      SerialUSB.println("Exe rotate!");
     }
   }
   else if(cmd[0] == 'm')
@@ -175,13 +194,19 @@ void parseCommand(char * cmd)
     int l = atol(&cmd[i]);
     while(cmd[i++] != ' ');
     int r = atol(&cmd[i]);
+    l = constrain(l, -1023, 1023);
+    r = constrain(r, -1023, 1023);
     
-    SerialUSB.print('Got l:');
-    SerialUSB.print(r);
-    SerialUSB.print(' r:');
-    SerialUSB.println(l);
+    leftGoalSpeed = l;
+    nextLeftUpdate = 0;
+    rightGoalSpeed = r;
+    nextRightUpdate = 0;
+    
+    SerialUSB.print("Got l:");
+    SerialUSB.print(l);
+    SerialUSB.print(" r:");
+    SerialUSB.println(r);
   }
-    
 }
 
       
