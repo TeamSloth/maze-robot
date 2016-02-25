@@ -7,6 +7,8 @@
   #define SerPort Serial1 // Note: change this to the correct serial port.
 #endif
 
+#define USE_VERBOSE_DEBUG 1
+
 /* Parameters that can be adjusted to tweek the behavior. */
 #define MAX_SPEED_CHANGE 50
 #define SPEED_CHANGE_RAMP_DELAY 50 /* ms */
@@ -201,8 +203,10 @@ void setMotorSpeed(void)
       }
     }
     /* Set the motor speed based on the current values */
+#if USE_VERBOSE_DEBUG
     SerPort.print("Setting Left = ");
     SerPort.println(leftSpeed);
+#endif
     if(leftSpeed < 0)
     {
       Dxl.goalSpeed(ID_NUM_LEFT, (-leftSpeed) | 0x400);
@@ -234,8 +238,10 @@ void setMotorSpeed(void)
     }
     
     /* Set the motor speed based on the current values */
+#if USE_VERBOSE_DEBUG
     SerPort.print("Setting Right = ");
     SerPort.println(rightSpeed);
+#endif
     if(rightSpeed < 0)
     {
       Dxl.goalSpeed(ID_NUM_RIGHT, -rightSpeed);
@@ -295,7 +301,9 @@ void setRightGoalSpeed(int s)
  */
 void parseCommand(char * cmd)
 {
+#if USE_VERBOSE_DEBUG
   SerPort.println(cmd);
+#endif
   const char * arcCmd = "arc";
   const char * rotateCmd = "rotate";
   
@@ -303,7 +311,6 @@ void parseCommand(char * cmd)
   {
     if(cmd[1] == 'r' && cmd[2] == 'c')
     {
-      SerPort.println("processing arc");
       /* Execute arc command */
       float r = 1;
       float w = 0;
@@ -325,15 +332,19 @@ void parseCommand(char * cmd)
         w = atol(&cmd[i])/1000.0;
       }
       
+#if USE_VERBOSE_DEBUG
       SerPort.print("Got r:");
       SerPort.print(r);
       SerPort.print(" w:");
       SerPort.println(w);
+#endif
       
       setLeftGoalSpeed(round((w*(r-0.0465))*MOTOR_SCALE_FACTOR));
       setRightGoalSpeed(round((w*(r+0.0465))*MOTOR_SCALE_FACTOR));
-        
+      
+#if USE_VERBOSE_DEBUG  
       SerPort.println("exe arc!");
+#endif
     }
   }
   else if(cmd[0] == 'r')
@@ -350,7 +361,9 @@ void parseCommand(char * cmd)
     if(rotateCmd[i] == '\0')
     {
       /* Execute Rotate Command */
+#if USE_VERBOSE_DEBUG
       SerPort.println("Exe rotate!");
+#endif
     }
   }
   else if(cmd[0] == 'm')
@@ -365,10 +378,12 @@ void parseCommand(char * cmd)
     setLeftGoalSpeed(l);
     setRightGoalSpeed(r);
     
+#if USE_VERBOSE_DEBUG
     SerPort.print("Got l:");
     SerPort.print(l);
     SerPort.print(" r:");
     SerPort.println(r);
+#endif
   }
 }
 
