@@ -10,6 +10,7 @@
 /* Parameters that can be adjusted to tweek the behavior. */
 #define MAX_SPEED_CHANGE 50
 #define SPEED_CHANGE_RAMP_DELAY 50 /* ms */
+#define MOTOR_SCALE_FACTOR 2000
 
 #define DXL_BUS_SERIAL1 1  //Dynamixel on Serial1(USART1)  <-OpenCM9.04
 
@@ -74,10 +75,10 @@ void setup()
   pinMode(BOARD_RIGHT_SENSE, INPUT_PULLDOWN);
   
   /* attach the interrupts */
-  attachInterrupt(BOARD_BUTTON_PIN, userButtonHandler, RISING);
-  attachInterrupt(BOARD_RIGHT_SENSE, leftBumperHandler, RISING);
-  attachInterrupt(BOARD_LEFT_SENSE, rightBumperHandler, RISING);
-  attachInterrupt(BOARD_LINE_SENSE, lineSensorHandler, RISING);
+//  attachInterrupt(BOARD_BUTTON_PIN, userButtonHandler, RISING);
+//  attachInterrupt(BOARD_RIGHT_SENSE, leftBumperHandler, RISING);
+//  attachInterrupt(BOARD_LEFT_SENSE, rightBumperHandler, RISING);
+//  attachInterrupt(BOARD_LINE_SENSE, lineSensorHandler, RISING);
   
   pinMode(BOARD_LED_PIN, OUTPUT);
 }
@@ -125,7 +126,7 @@ void loop()
     }
   }
   
-  handleTripSensors();
+//  handleTripSensors();
   
   setMotorSpeed();
 }
@@ -272,8 +273,23 @@ void commandParser(char c)
    
 }
 
+void setLeftGoalSpeed(int s)
+{
+  s = constrain(s, -1023, 1023);
+  leftGoalSpeed = s;
+  nextLeftUpdate = 0;
+}
+
+void setRightGoalSpeed(int s)
+{
+  s = constrain(s, -1023, 1023);
+  rightGoalSpeed = s;
+  nextRightUpdate = 0;
+}
+
 /* currently only the following commands are parsed
- * <arc r:[radius value] v:[tangential velocity]>
+ * <arc r:[radius value] w:[angular velocity]>
+ * r is in mm and w is in radians per ms (guessed) refrence values are r=1000, w=200
  * <rotate a:[angle to rotate through] w:[angular velocity]>
  * NOTE: the values are relative and don't corrispond to and real values
  */
@@ -285,9 +301,38 @@ void parseCommand(char * cmd)
   
   if(cmd[0] == 'a')
   {
-    if(cmd[1] == 'r' && cmd[3] == 'c')
+    if(cmd[1] == 'r' && cmd[2] == 'c')
     {
+      SerPort.println("processing arc");
       /* Execute arc command */
+      float r = 1;
+      float w = 0;
+      
+      /* Note: the behavior for a malformed command is undefined (but almost certainly bad)
+       */
+      int i = 2;
+      while(cmd[i++] != ' '); /* find the next space */
+      if(cmd[i] == 'r')
+      {
+        while(cmd[i++] != ':'); /* find the ':' */
+        r = atol(&cmd[i])/1000.0;
+      }
+      
+      while(cmd[i++] != ' '); /* find the next space */
+      if(cmd[i] == 'w')
+      {
+        while(cmd[i++] != ':'); /* find the ':' */
+        w = atol(&cmd[i])/1000.0;
+      }
+      
+      SerPort.print("Got r:");
+      SerPort.print(r);
+      SerPort.print(" w:");
+      SerPort.println(w);
+      
+      setLeftGoalSpeed(round((w*(r-0.0465))*MOTOR_SCALE_FACTOR));
+      setRightGoalSpeed(round((w*(r+0.0465))*MOTOR_SCALE_FACTOR));
+        
       SerPort.println("exe arc!");
     }
   }
@@ -315,13 +360,10 @@ void parseCommand(char * cmd)
     int l = atol(&cmd[i]);
     while(cmd[i++] != ' ');
     int r = atol(&cmd[i]);
-    l = constrain(l, -1023, 1023);
-    r = constrain(r, -1023, 1023);
+
     
-    leftGoalSpeed = l;
-    nextLeftUpdate = 0;
-    rightGoalSpeed = r;
-    nextRightUpdate = 0;
+    setLeftGoalSpeed(l);
+    setRightGoalSpeed(r);
     
     SerPort.print("Got l:");
     SerPort.print(l);
