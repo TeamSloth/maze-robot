@@ -20,14 +20,12 @@
 #define ID_NUM_LEFT 1
 #define ID_NUM_RIGHT 2
 
-#define BOARD_RIGHT_DRIVE 16
-#define BOARD_RIGHT_SENSE 17
-
-/* TODO: these need to be define to the correct pins */
-#define BOARD_LEFT_DRIVE 18
-#define BOARD_LEFT_SENSE 19
-// #define BOARD_LINE_DRIVE 20
-#define BOARD_LINE_SENSE 21
+#define BOARD_RIGHT_DRIVE 18
+#define BOARD_RIGHT_SENSE 19
+#define BOARD_LEFT_DRIVE 21
+#define BOARD_LEFT_SENSE 21
+#define BOARD_LINE_DRIVE 6
+#define BOARD_LINE_SENSE 8
 
 /* buffers for the incomming serial data */
 static char commandBuffer[256];
@@ -74,17 +72,28 @@ void setup()
   Dxl.begin(3);
   Dxl.wheelMode(ID_NUM_LEFT); //wheelMode() is to use wheel mode
   Dxl.wheelMode(ID_NUM_RIGHT); //wheelMode() is to use wheel mode
+  
+  /* Bumper Pin configuration */
   pinMode(BOARD_RIGHT_DRIVE, OUTPUT);
   digitalWrite(BOARD_RIGHT_DRIVE, 1);
   pinMode(BOARD_RIGHT_SENSE, INPUT_PULLDOWN);
   
+  pinMode(BOARD_LEFT_DRIVE, OUTPUT);
+  digitalWrite(BOARD_LEFT_DRIVE, 1);
+  pinMode(BOARD_LEFT_SENSE, INPUT_PULLDOWN);
+  
+  pinMode(BOARD_LINE_DRIVE, OUTPUT);
+  digitalWrite(BOARD_LINE_DRIVE, 1);
+  pinMode(BOARD_LINE_SENSE, INPUT_PULLUP);
+  
   /* attach the interrupts */
-//  attachInterrupt(BOARD_BUTTON_PIN, userButtonHandler, RISING);
-//  attachInterrupt(BOARD_RIGHT_SENSE, leftBumperHandler, RISING);
-//  attachInterrupt(BOARD_LEFT_SENSE, rightBumperHandler, RISING);
-//  attachInterrupt(BOARD_LINE_SENSE, lineSensorHandler, RISING);
+  attachInterrupt(BOARD_BUTTON_PIN, userButtonHandler, RISING);
+  attachInterrupt(BOARD_RIGHT_SENSE, leftBumperHandler, RISING);
+  attachInterrupt(BOARD_LEFT_SENSE, rightBumperHandler, RISING);
+  attachInterrupt(BOARD_LINE_SENSE, lineSensorHandler, RISING);
   
   pinMode(BOARD_LED_PIN, OUTPUT);
+  digitalWrite(BOARD_LED_PIN, HIGH); /* turn off, Active Low */
 }
 
 void loop()
