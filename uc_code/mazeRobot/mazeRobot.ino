@@ -49,6 +49,8 @@ int maxSpeedChange = MAX_SPEED_CHANGE;
 long nextRightUpdate = 0;
 long nextLeftUpdate = 0;
 
+long motorTimeout = -1;
+
 /* Trip Sensors (buttons, bumpers, line sensors) */
 #define USER_BUTTON   0x01
 #define LEFT_BUMPER   0x02
@@ -103,6 +105,7 @@ void loop()
 //  handleTripSensors();
   
   setMotorSpeed();
+  handleMotorTimeout(); /* TODO: actualy write this function */
 }
 
 /*
@@ -272,6 +275,15 @@ void setRightGoalSpeed(int s)
   rightGoalSpeed = s;
   nextRightUpdate = 0;
 }
+
+void handleMotorTimeout(void)
+{
+  if((motorTimeout >= 0) && (motorTimeout < millis()))
+  {
+    setLeftGoalSpeed(0);
+    setRightGoalSpeed(0);
+  }
+}
   
 
 /*
@@ -305,7 +317,8 @@ void commandParser(char c)
 /* currently only the following commands are parsed
  * <arc r:[radius value] w:[angular velocity]>
  * r is in mm and w is in radians per ms (guessed) refrence values are r=1000, w=200
- * <rotate a:[angle to rotate through] w:[angular velocity]>
+ * <rotate a:[angle to rotate through] t:[time]>
+ * a is in degrees and t is in ms. (rotates through a degrees in t ms)
  * NOTE: the values are relative and don't corrispond to and real values
  */
 void parseCommand(char * cmd)
@@ -316,7 +329,7 @@ void parseCommand(char * cmd)
   const char * arcCmd = "arc";
   const char * rotateCmd = "rotate";
   
-  if(cmd[0] == 'a')
+  if(cmd[0] == 'a') /* Parser 'arc' Command */
   {
     if(cmd[1] == 'r' && cmd[2] == 'c')
     {
@@ -356,7 +369,7 @@ void parseCommand(char * cmd)
 #endif
     }
   }
-  else if(cmd[0] == 'r')
+  else if(cmd[0] == 'r') /* Parse 'rotate' Command */
   {
     int i = 1;
     while(rotateCmd[i] != '\0')
@@ -369,13 +382,36 @@ void parseCommand(char * cmd)
     }
     if(rotateCmd[i] == '\0')
     {
+      int a = 0;
+      long t = 0;
       /* Execute Rotate Command */
+      while(cmd[++i] == ' '); /* find the first non-space character */
+      if(cmd[i] == 'a')
+      {
+        while(cmd[i++] != ':'); /* find the ':' */
+        a = atol(&cmd[i]);
+      }
+      while(cmd[i++] != ' '); /* find the next space */
+      while(cmd[++i] == ' '); /* find the first non-space character */
+      if(cmd[i] == 't')
+      {
+        while(cmd[i++] != ':'); /* find the ':' */
+        t = atol(&cmd[i]);
+      }
+      float arclength_mm = PI*93.0*a/360.0;
+      float v_mm_per_ms = arclength_mm/t;
+      
+      setLeftGoalSpeed(-round(v_mm_per_ms*MOTOR_SCALE_FACTOR));
+      setRightGoalSpeed(round(v_mm_per_ms*MOTOR_SCALE_FACTOR));
+      motorTimeout = millis() + t;
+      
+      
 #if USE_VERBOSE_DEBUG
       SerPort.println("Exe rotate!");
 #endif
     }
   }
-  else if(cmd[0] == 'm')
+  else if(cmd[0] == 'm') /* Parser direct motor set command */
   {
     int i = 0;
     while(cmd[i++] != ' ');
