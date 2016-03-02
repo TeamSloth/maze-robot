@@ -86,6 +86,8 @@ void setup()
   digitalWrite(BOARD_LINE_DRIVE, 1);
   pinMode(BOARD_LINE_SENSE, INPUT_PULLUP);
   
+  pinMode(BOARD_BUTTON_PIN, INPUT_PULLDOWN);
+  
   /* attach the interrupts */
   attachInterrupt(BOARD_BUTTON_PIN, userButtonHandler, RISING);
   attachInterrupt(BOARD_RIGHT_SENSE, leftBumperHandler, RISING);
@@ -111,7 +113,7 @@ void loop()
     }
   }
   
-//  handleTripSensors();
+  handleTripSensors();
   
   setMotorSpeed();
   handleMotorTimeout(); /* TODO: actualy write this function */
