@@ -4,7 +4,7 @@ import serial
 from RobotMessage import RobotMessage
 from threading import Timer
 
-standard_arc = {'r':300, 'w':-700}
+standard_arc = {'r':300, 'w':700}
 standard_rotate = {'a':45, 't':100}
 
 # implements a finite state machine, state table is a dictionary look up table 
