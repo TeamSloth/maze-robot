@@ -1,10 +1,10 @@
 /* Main source code for the maze robot. */
 
-#define USE_USB_SERIAL 1 // change this to 0 to enable hardware serial
+#define USE_USB_SERIAL 0// change this to 0 to enable hardware serial
 #if USE_USB_SERIAL
   #define SerPort SerialUSB
 #else
-  #define SerPort Serial1 // Note: change this to the correct serial port.
+  #define SerPort Serial2 // Note: change this to the correct serial port.
 #endif
 
 #define USE_VERBOSE_DEBUG 1
@@ -20,10 +20,10 @@
 #define ID_NUM_LEFT 1
 #define ID_NUM_RIGHT 2
 
-#define BOARD_RIGHT_DRIVE 18
-#define BOARD_RIGHT_SENSE 19
-#define BOARD_LEFT_DRIVE 21
-#define BOARD_LEFT_SENSE 21
+#define BOARD_RIGHT_DRIVE 20
+#define BOARD_RIGHT_SENSE 21
+#define BOARD_LEFT_DRIVE 18
+#define BOARD_LEFT_SENSE 19
 #define BOARD_LINE_DRIVE 6
 #define BOARD_LINE_SENSE 8
 
@@ -62,7 +62,7 @@ volatile long lineSensorLockout = -1;
 
 #define USER_BUTTON_LOCKOUT_TIME 200 /* ms */
 #define BUMPER_LOCKOUT_TIME 200 /* ms */
-#define LINE_SENSOR_LOCKOUT_TIME 200 /* ms */
+#define LINE_SENSOR_LOCKOUT_TIME 2000 /* ms */
 
 void setup()
 {
@@ -89,13 +89,22 @@ void setup()
   pinMode(BOARD_BUTTON_PIN, INPUT_PULLDOWN);
   
   /* attach the interrupts */
-  attachInterrupt(BOARD_BUTTON_PIN, userButtonHandler, RISING);
-  attachInterrupt(BOARD_RIGHT_SENSE, leftBumperHandler, RISING);
-  attachInterrupt(BOARD_LEFT_SENSE, rightBumperHandler, RISING);
+ /* For some reason the interrupt dosent seem to work with this
+  * pin, I verified that the pin status does change on pressing 
+  * the user button, but the interupt does not fire. There is
+  * nothing in the user documentatin indicating why this is the
+  * case.
+  */
+ // attachInterrupt(BOARD_BUTTON_PIN, userButtonHandler, RISING);
+  attachInterrupt(BOARD_LEFT_SENSE, leftBumperHandler, RISING);
+  attachInterrupt(BOARD_RIGHT_SENSE, rightBumperHandler, RISING);
   attachInterrupt(BOARD_LINE_SENSE, lineSensorHandler, RISING);
   
   pinMode(BOARD_LED_PIN, OUTPUT);
   digitalWrite(BOARD_LED_PIN, HIGH); /* turn off, Active Low */
+
+  SerPort.println("<sensor user:1>");
+
 }
 
 void loop()
@@ -112,7 +121,7 @@ void loop()
       commandParser(SerPort.read());
     }
   }
-  
+    
   handleTripSensors();
   
   setMotorSpeed();
@@ -132,7 +141,7 @@ void handleTripSensors(void)
   if((userButtonLockout > 0) && (millis() > userButtonLockout))
   {
     userButtonLockout = -1;
-    attachInterrupt(BOARD_BUTTON_PIN, userButtonHandler, RISING);
+    //attachInterrupt(BOARD_BUTTON_PIN, userButtonHandler, RISING);
   }
     
   if(tripSensorStatus & LEFT_BUMPER)
@@ -171,29 +180,30 @@ void handleTripSensors(void)
 
 void userButtonHandler(void)
 {
+  SerPort.println('user');
   tripSensorStatus |= USER_BUTTON;
-  long userButtonLockout = USER_BUTTON_LOCKOUT_TIME;
-  detachInterrupt(BOARD_BUTTON_PIN);
+  userButtonLockout = millis() + USER_BUTTON_LOCKOUT_TIME;
+  //detachInterrupt(BOARD_BUTTON_PIN);
 }
 
 void leftBumperHandler(void)
 {
   tripSensorStatus |= LEFT_BUMPER;
-  long leftBumperLockout = BUMPER_LOCKOUT_TIME;
+  leftBumperLockout = millis() + BUMPER_LOCKOUT_TIME;
   detachInterrupt(BOARD_LEFT_SENSE);
 }
 
 void rightBumperHandler(void)
 {
   tripSensorStatus |= RIGHT_BUMPER;
-  long rightBumperLockout = BUMPER_LOCKOUT_TIME;
+  rightBumperLockout = millis() + BUMPER_LOCKOUT_TIME;
   detachInterrupt(BOARD_RIGHT_SENSE);
 }
 
 void lineSensorHandler(void)
 {
   tripSensorStatus |= LINE_SENSOR;
-  long lineSensorLockout = LINE_SENSOR_LOCKOUT_TIME;
+  lineSensorLockout = millis() + LINE_SENSOR_LOCKOUT_TIME;
   detachInterrupt(BOARD_LINE_SENSE);
 }
 
@@ -373,8 +383,9 @@ void parseCommand(char * cmd)
       SerPort.println(w);
 #endif
       
-      setLeftGoalSpeed(round((w*(r-0.0465))*MOTOR_SCALE_FACTOR));
-      setRightGoalSpeed(round((w*(r+0.0465))*MOTOR_SCALE_FACTOR));
+      int dir = (r < 0) ? -1: 1;
+      setLeftGoalSpeed(round((w*(abs(r)-(dir*0.0465)))*MOTOR_SCALE_FACTOR));
+      setRightGoalSpeed(round((w*(abs(r)+(dir*0.0465)))*MOTOR_SCALE_FACTOR));
       
 #if USE_VERBOSE_DEBUG  
       SerPort.println("exe arc!");

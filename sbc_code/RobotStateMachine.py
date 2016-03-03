@@ -4,7 +4,7 @@ import serial
 from RobotMessage import RobotMessage
 from threading import Timer
 
-standard_arc = {'r':300, 'w':700}
+standard_arc = {'r':-300, 'w':700}
 standard_rotate = {'a':45, 't':100}
 
 # implements a finite state machine, state table is a dictionary look up table 
@@ -37,6 +37,7 @@ class MazeRobot(RobotStateMachine):
     def __init__(self, ser):
         self.ser = ser
         states = {'init':self.state_init,
+                  'exit_gate':self.state_exit_gate,
                   'moving_arc':self.state_moving_arc,
                   'rotate':self.state_rotate,
                   'goal_found':self.state_goal_found}
@@ -83,23 +84,29 @@ class MazeRobot(RobotStateMachine):
             pass
         elif trigger == 'timer':
             print 'state_init: timer'
-            self.transition('moving_arc')
+            self.transition('exit_gate')
             pass
         else:
             pass
 
     def state_exit_gate(self, trigger, args):
         if trigger == 'entry':
+            print 'state_exit_goal: entry'
+            self.ser.write('<m 290 300>')
             pass
         elif trigger == 'exit':
             pass
         elif trigger == 'user_button':
+            print 'state_exit_goal: user_button'
+            self.transition('init')
             pass
         elif trigger == 'right_sensor':
             pass
         elif trigger == 'left_sensor':
             pass
         elif trigger == 'goal_sensor':
+            print 'state_exit_goal: goal_sensor'
+            self.transition('moving_arc')
             pass
         elif trigger == 'timer':
             pass
@@ -137,6 +144,8 @@ class MazeRobot(RobotStateMachine):
         elif trigger == 'exit':
             pass
         elif trigger == 'user_button':
+            print 'state_rotate: user_button'
+            self.transition('init')
             pass
         elif trigger == 'right_sensor':
             pass
@@ -159,6 +168,8 @@ class MazeRobot(RobotStateMachine):
         elif trigger == 'exit':
             pass
         elif trigger == 'user_button':
+            print 'state_goal_found: user_button'
+            self.transition('init')
             pass
         elif trigger == 'right_sensor':
             pass
